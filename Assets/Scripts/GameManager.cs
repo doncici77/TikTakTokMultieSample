@@ -28,6 +28,7 @@ public class GameManager : MonoBehaviour
 
     public event Action<int, int, SquareState> OnBoardChaged;
     public event Action<GameOverState> OnGameEnded;
+    public event Action<SquareState> ChangeHudUI;
 
     private void Awake()
     {
@@ -62,6 +63,8 @@ public class GameManager : MonoBehaviour
 
                 currentTurnState = SquareState.Cross;
             }
+
+            ChangeHudUI?.Invoke(currentTurnState);
 
             if (TestGameOver() == GameOverState.Cross || TestGameOver() == GameOverState.Circle)
             {
