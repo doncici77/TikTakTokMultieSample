@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Unity.Netcode;
 
 public enum SquareState
 {
@@ -19,7 +20,7 @@ public enum GameOverState
 /// <summary>
 /// 틱택토 게임을 진행한다. => 비즈니스 로직 => 핵심 모듈
 /// </summary>
-public class GameManager : MonoBehaviour
+public class GameManager : NetworkBehaviour
 {
     public static GameManager Instance { get; private set; }
 
@@ -42,6 +43,7 @@ public class GameManager : MonoBehaviour
             Destroy(Instance);
         }
     }
+
 
     public void PlayMarker(int x, int y)
     {
