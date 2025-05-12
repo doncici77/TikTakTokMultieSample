@@ -8,7 +8,7 @@ public class HudUI : MonoBehaviour
     private void Start()
     {
         leftArrow.SetActive(false);
-        rightArrow.SetActive(true);
+        rightArrow.SetActive(false);
 
         GameManager.Instance.ChangeHudUI += ChangeTurnHud;
     }

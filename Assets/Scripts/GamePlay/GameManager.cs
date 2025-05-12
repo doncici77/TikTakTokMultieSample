@@ -25,7 +25,9 @@ public class GameManager : NetworkBehaviour
     public static GameManager Instance { get; private set; }
 
     private SquareState[,] board = new SquareState[3, 3];
-    private SquareState currentTurnState = SquareState.Cross;
+
+    private NetworkVariable<SquareState> currentTurnState = new();
+    public SquareState localPlayerType = SquareState.None;
 
     public event Action<int, int, SquareState> OnBoardChaged;
     public event Action<GameOverState> OnGameEnded;
@@ -33,7 +35,7 @@ public class GameManager : NetworkBehaviour
 
     private void Awake()
     {
-        if(Instance == null)
+        if (Instance == null)
         {
             Instance = this;
             DontDestroyOnLoad(Instance);
@@ -44,29 +46,51 @@ public class GameManager : NetworkBehaviour
         }
     }
 
+    private void Start()
+    {
+        currentTurnState.OnValueChanged += ChangeValue;
+
+        NetworkManager.Singleton.OnConnectionEvent += (networkManager, connectionEventData) =>
+        {
+            Logger.Info($"Client {connectionEventData.ClientId}, {connectionEventData.EventType}");
+            if (NetworkManager.ConnectedClients.Count == 2)
+            {
+                if (IsHost)
+                {
+                    localPlayerType = SquareState.Cross;
+                    currentTurnState.Value = SquareState.Cross;
+                }
+                else if (IsClient)
+                {
+                    localPlayerType = SquareState.Circle;
+                }
+            }
+        };
+    }
 
     public void PlayMarker(int x, int y)
     {
-        if (board[y, x] == SquareState.None && TestGameOver() == GameOverState.NotOver) // Ä­ÀÌ ¼±ÅÃµÈÀû ¾øÀ»¶§
+        if (localPlayerType == currentTurnState.Value)
         {
-            if (currentTurnState == SquareState.Cross) // x Â÷·Ê
+            ReqValidateRpc(x, y, localPlayerType);
+        }
+
+        /*if (board[y, x] == SquareState.None && TestGameOver() == GameOverState.NotOver) // Ä­ÀÌ ¼±ÅÃµÈÀû ¾øÀ»¶§
+        {
+            if (currentTurnState.Value == SquareState.Cross) // x Â÷·Ê
             {
                 board[y, x] = SquareState.Cross;
 
                 OnBoardChaged?.Invoke(x, y, SquareState.Cross);
-
-                currentTurnState = SquareState.Circle;
             }
-            else if (currentTurnState == SquareState.Circle) // ¤· Â÷·Ê
+            else if (currentTurnState.Value == SquareState.Circle) // ¤· Â÷·Ê
             {
                 board[y, x] = SquareState.Circle;
 
                 OnBoardChaged?.Invoke(x, y, SquareState.Circle);
-
-                currentTurnState = SquareState.Cross;
             }
 
-            ChangeHudUI?.Invoke(currentTurnState);
+            ChangeHudUI?.Invoke(currentTurnState.Value);
 
             if (TestGameOver() == GameOverState.Cross || TestGameOver() == GameOverState.Circle)
             {
@@ -78,7 +102,7 @@ public class GameManager : NetworkBehaviour
                 Logger.Info($"{TestGameOver()}!");
                 OnGameEnded?.Invoke(TestGameOver());
             }
-        }
+        }*/
     }
 
     /// <summary>
@@ -140,9 +164,9 @@ public class GameManager : NetworkBehaviour
             }
         }
 
-        for(int y = 0; y < 3; y++)
+        for (int y = 0; y < 3; y++)
         {
-            for(int x = 0; x < 3; x++)
+            for (int x = 0; x < 3; x++)
             {
                 if (board[y, x] == SquareState.None)
                 {
@@ -152,5 +176,46 @@ public class GameManager : NetworkBehaviour
         }
 
         return GameOverState.Tie;
+    }
+
+    [Rpc(SendTo.Server)]
+    public void ReqValidateRpc(int x, int y, SquareState state)
+    {
+        if(false == IsValidPLayerMarker(x, y, state))
+        {
+            return;
+        }
+
+        ChangeBoradStateRpc(x, y, state);
+
+        if (currentTurnState.Value == SquareState.Cross)
+        {
+            currentTurnState.Value = SquareState.Circle;
+        }
+        else if (currentTurnState.Value == SquareState.Circle)
+        {
+            currentTurnState.Value = SquareState.Cross;
+        }
+    }
+
+    [Rpc(SendTo.Everyone)]
+    public void ChangeBoradStateRpc(int x, int y, SquareState state)
+    {
+        board[y, x] = state;
+        OnBoardChaged?.Invoke(x, y, state);
+    }
+
+    private bool IsValidPLayerMarker(int x, int y, SquareState state)
+    {
+        return TestGameOver() == GameOverState.NotOver &&
+            state == currentTurnState.Value &&
+            board[y, x] == SquareState.None;
+    }
+
+    public void ChangeValue(SquareState pre, SquareState changeV)
+    {
+        Logger.Info($"{pre} => {changeV}");
+
+        ChangeHudUI?.Invoke(changeV);
     }
 }
